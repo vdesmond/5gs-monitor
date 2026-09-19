@@ -1,0 +1,22 @@
+[
+ {
+  "phase": "baseline",
+  "start": 1789821356.411306,
+  "seconds": 30
+ },
+ {
+  "phase": "uncontrolled",
+  "start": 1789821386.415324,
+  "seconds": 90
+ },
+ {
+  "phase": "controlled",
+  "start": 1789821476.647292,
+  "seconds": 150
+ },
+ {
+  "phase": "cooldown",
+  "start": 1789821628.31792,
+  "seconds": 60
+ }
+]

@@ -1,0 +1,34 @@
+# The "application" the UEs talk to through the core: answers pings and hosts an iperf3 server.
+# Headless Service so the probes resolve it to the pod IP (ICMP cannot go through a ClusterIP).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-server
+  namespace: 5gs
+  labels: {app: app-server}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: app-server}
+  template:
+    metadata:
+      labels: {app: app-server}
+    spec:
+      containers:
+        - name: iperf3
+          image: 5gs-monitor:local
+          imagePullPolicy: Never
+          command: ["iperf3", "-s"]
+          ports:
+            - {containerPort: 5201, name: iperf}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-server
+  namespace: 5gs
+spec:
+  clusterIP: None
+  selector: {app: app-server}
+  ports:
+    - {port: 5201, name: iperf}

@@ -1,0 +1,15 @@
+period_s: 2
+protected:
+  slice: urllc
+  rtt_p95_ms: 15
+  loss_ratio: 0.01
+  trend_window_s: 10
+  predict_horizon_s: 6
+best_effort:
+  slice: embb
+  shaper_url: http://upf-embb-shaper.5gs.svc:8081
+  start_mbit: 40
+  decrease_factor: 0.7
+  increase_mbit: 1
+  floor_mbit: 2
+  release_after_s: 30

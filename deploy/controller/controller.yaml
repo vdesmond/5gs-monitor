@@ -1,0 +1,67 @@
+# The policy ConfigMap `controller-policy` is created from deploy/controller/policy.yaml (see Makefile).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller
+  namespace: 5gs
+  labels: {app: controller}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: controller}
+  template:
+    metadata:
+      labels: {app: controller}
+    spec:
+      containers:
+        - name: controller
+          image: 5gs-monitor:local
+          imagePullPolicy: Never
+          args: ["controller"]
+          env:
+            - {name: PROMETHEUS_URL, value: http://kps-prometheus.monitoring.svc:9090}
+            - {name: CONTROLLER_ENABLED, value: "true"}
+          ports:
+            - {containerPort: 8082, name: api}
+            - {containerPort: 9102, name: metrics}
+          volumeMounts:
+            - {name: policy, mountPath: /etc/fivegs-monitor}
+      volumes:
+        - name: policy
+          configMap: {name: controller-policy}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: controller
+  namespace: 5gs
+spec:
+  selector: {app: controller}
+  ports:
+    - {port: 8082, name: api}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: controller
+  namespace: 5gs
+spec:
+  selector:
+    matchLabels: {app: controller}
+  podMetricsEndpoints:
+    - port: metrics
+      interval: 2s
+---
+# shaper sidecars (gNB cell + eMBB UPF) export their configured rate
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: shapers
+  namespace: 5gs
+spec:
+  selector:
+    matchExpressions:
+      - {key: app, operator: In, values: [gnb]}
+  podMetricsEndpoints:
+    - port: metrics
+      interval: 2s

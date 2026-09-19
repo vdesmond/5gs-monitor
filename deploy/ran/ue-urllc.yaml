@@ -1,0 +1,89 @@
+# UERANSIM UE for the urllc slice. The nr-ue container brings up the PDU session on uesimtun0; the
+# `probe` sidecar (same network namespace) routes app-server traffic through the tunnel, measures
+# RTT/loss/throughput on it and exports them on :9100 for Prometheus. The loadgen sidecar carries
+# iperf3 for the experiments and otherwise idles.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ue-urllc-config
+  namespace: 5gs
+data:
+  ue.yaml: |
+    supi: 'imsi-999700000000002'
+    mcc: '999'
+    mnc: '70'
+    key: '465B5CE8B199B49FAA5F0A2EE238A6BC'
+    op: 'E8ED289DEBA952E4283B54E88E6183CA'
+    opType: 'OPC'
+    amf: '8000'
+    imei: '356938035643803'
+    imeiSv: '4370816125816151'
+    gnbSearchList:
+      - ${GNB_IP}
+    uacAic: {mps: false, mcs: false}
+    uacAcc: {normalClass: 0, class11: false, class12: false, class13: false, class14: false, class15: false}
+    sessions:
+      - type: 'IPv4'
+        apn: 'urllc'
+        slice: {sst: 2, sd: 0x000002}
+    configured-nssai:
+      - {sst: 2, sd: 0x000002}
+    default-nssai:
+      - {sst: 2, sd: 0x000002}
+    integrity: {IA1: true, IA2: true, IA3: true}
+    ciphering: {EA1: true, EA2: true, EA3: true}
+    integrityMaxRate: {uplink: 'full', downlink: 'full'}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ue-urllc
+  namespace: 5gs
+  labels: {app: ue, 5gs-monitor/slice: urllc}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate   # the old UE must switch off before a new one registers with the same IMSI
+  selector:
+    matchLabels: {app: ue, 5gs-monitor/slice: urllc}
+  template:
+    metadata:
+      labels: {app: ue, 5gs-monitor/slice: urllc}
+    spec:
+      containers:
+        - name: nr-ue
+          image: gradiant/ueransim:3.2.6
+          args: ["ue"]
+          env:
+            - {name: GNB_HOSTNAME, value: gnb}
+          securityContext:
+            privileged: true          # /dev/net/tun for uesimtun0
+            capabilities: {add: [NET_ADMIN]}
+          volumeMounts:
+            - {name: config, mountPath: /etc/ueransim/ue.yaml, subPath: ue.yaml}
+          # user plane dead (cannot reach the UPF's tunnel gateway) -> re-register from scratch
+          livenessProbe:
+            exec:
+              command: ["ping", "-I", "uesimtun0", "-c", "1", "-W", "2", "10.46.0.1"]
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 12
+        - name: probe
+          image: 5gs-monitor:local
+          imagePullPolicy: Never
+          args: ["probe"]
+          env:
+            - {name: SLICE, value: urllc}
+            - {name: TARGET_HOST, value: app-server.5gs.svc.cluster.local}
+          securityContext:
+            capabilities: {add: [NET_ADMIN, NET_RAW]}   # route via uesimtun0, ICMP
+          ports:
+            - {containerPort: 9100, name: metrics}
+        - name: loadgen
+          image: 5gs-monitor:local
+          imagePullPolicy: Never
+          command: ["sleep", "infinity"]
+      volumes:
+        - name: config
+          configMap: {name: ue-urllc-config}

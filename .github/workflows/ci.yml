@@ -1,0 +1,25 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  lint-and-render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {submodules: true}
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --extra analysis
+      - run: uv run ruff check src experiments
+      - run: uv run python -m compileall -q src experiments
+      - uses: azure/setup-helm@v4
+      - name: render the core charts with the slice values
+        run: |
+          for c in open5gs open5gs-smf open5gs-upf; do helm dependency build third_party/5g-charts/charts/$c; done
+          helm template open5gs   third_party/5g-charts/charts/open5gs     -n 5gs -f deploy/core/open5gs-values.yaml   > /dev/null
+          helm template smf-urllc third_party/5g-charts/charts/open5gs-smf -n 5gs -f deploy/core/smf-urllc-values.yaml > /dev/null
+          helm template upf-urllc third_party/5g-charts/charts/open5gs-upf -n 5gs -f deploy/core/upf-urllc-values.yaml > /dev/null
+      - name: validate the plain manifests
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          ./kubeconform -strict -ignore-missing-schemas -summary deploy/core/namespace.yaml deploy/core/mongodb.yaml deploy/core/provision-job.yaml deploy/core/servicemonitor.yaml deploy/core/upf-embb-shaper-service.yaml deploy/ran/*.yaml deploy/controller/controller.yaml
+      - name: image builds
+        run: docker build -t 5gs-monitor:ci .

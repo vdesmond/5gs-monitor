@@ -1,0 +1,12 @@
+# Scrape every UE probe sidecar (port 9100) with kube-prometheus-stack.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: ue-probes
+  namespace: 5gs
+spec:
+  selector:
+    matchLabels: {app: ue}
+  podMetricsEndpoints:
+    - port: metrics
+      interval: 2s

@@ -1,0 +1,20 @@
+# One ServiceMonitor for every Open5GS NF metrics Service (label app.kubernetes.io/component=metrics).
+# Prometheus 3 refuses Open5GS's exporter because it sends no Content-Type, so the fallback scrape
+# protocol has to be set - which the Gradiant charts' own ServiceMonitors do not do.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: open5gs
+  namespace: 5gs
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: metrics
+  fallbackScrapeProtocol: PrometheusText0.0.4
+  endpoints:
+    - port: metrics
+      interval: 5s
+      relabelings:
+        # nf = amf|smf|upf|pcf, instance = release (open5gs / smf-urllc / upf-urllc)
+        - {sourceLabels: [__meta_kubernetes_service_label_app_kubernetes_io_name], targetLabel: nf}
+        - {sourceLabels: [__meta_kubernetes_service_label_app_kubernetes_io_instance], targetLabel: release}

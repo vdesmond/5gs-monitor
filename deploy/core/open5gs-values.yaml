@@ -1,0 +1,150 @@
+# Open5GS 5G core (Gradiant umbrella chart, third_party/5g-charts/charts/open5gs).
+#
+# Two network slices, each with its own SMF/UPF pair so the user plane can be observed and
+# actuated per slice:
+#   eMBB   S-NSSAI sst=1 sd=000001  DNN embb   pool 10.45.0.0/16  -> open5gs-smf / open5gs-upf (this release)
+#   URLLC  S-NSSAI sst=2 sd=000002  DNN urllc  pool 10.46.0.0/16  -> smf-urllc / upf-urllc (deploy/core/*-urllc-values.yaml)
+#
+# Subscribers are provisioned by the `provision` job (controller image), not by the chart's populate
+# deployment, whose dbctl image is amd64-only. Image tag is pinned to 2.7.2: the last gradiant/open5gs
+# build that ships linux/arm64 (the cluster runs on Apple Silicon).
+
+mongodb:
+  enabled: false
+populate:
+  enabled: false
+webui:
+  enabled: false
+
+# 4G/EPC path off
+hss: {enabled: false}
+mme: {enabled: false}
+pcrf: {enabled: false}
+sgwc: {enabled: false}
+sgwu: {enabled: false}
+
+nrf:
+  enabled: true
+  image: {tag: 2.7.2}
+scp:
+  enabled: true
+  image: {tag: 2.7.2}
+sepp:
+  enabled: false
+ausf:
+  enabled: true
+  image: {tag: 2.7.2}
+udm:
+  enabled: true
+  image: {tag: 2.7.2}
+udr:
+  enabled: true
+  image: {tag: 2.7.2}
+bsf:
+  enabled: true
+  image: {tag: 2.7.2}
+
+amf:
+  enabled: true
+  image: {tag: 2.7.2}
+  metrics:
+    enabled: true
+    serviceMonitor: {enabled: false}   # replaced by deploy/core/servicemonitor.yaml
+  config:
+    networkName: 5gs-monitor
+    guamiList:
+      - plmn_id: {mcc: "999", mnc: "70"}
+        amf_id: {region: 2, set: 1}
+    taiList:
+      - plmn_id: {mcc: "999", mnc: "70"}
+        tac: [1]
+    plmnList:
+      - plmn_id: {mcc: "999", mnc: "70"}
+        s_nssai:
+          - {sst: 1, sd: "000001"}
+          - {sst: 2, sd: "000002"}
+
+nssf:
+  enabled: true
+  image: {tag: 2.7.2}
+  config:
+    nsiList:
+      - {uri: "", sst: 1, sd: "000001"}
+      - {uri: "", sst: 2, sd: "000002"}
+
+pcf:
+  enabled: true
+  image: {tag: 2.7.2}
+  metrics:
+    enabled: true
+    serviceMonitor: {enabled: false}   # replaced by deploy/core/servicemonitor.yaml
+
+# eMBB slice user plane
+smf:
+  enabled: true
+  image: {tag: 2.7.2}
+  metrics:
+    enabled: true
+    serviceMonitor: {enabled: false}   # replaced by deploy/core/servicemonitor.yaml
+  config:
+    pcrf: {enabled: false}
+  # the chart's config template has no `info` block, so the SMF is described in full here
+  customOpen5gsConfig:
+    logger: {level: info}
+    global: {}
+    smf:
+      sbi:
+        server:
+          - {dev: eth0, port: 7777}
+        client:
+          scp:
+            - {uri: http://open5gs-scp-sbi:7777}
+      pfcp:
+        server:
+          - {dev: eth0}
+        client:
+          upf:
+            - {address: open5gs-upf-pfcp, dnn: [embb]}
+      gtpc:
+        server:
+          - {dev: eth0}
+      gtpu:
+        server:
+          - {dev: eth0}
+      metrics:
+        server:
+          - {dev: eth0, port: 9090}
+      session:
+        - {subnet: 10.45.0.0/16, gateway: 10.45.0.1, dnn: embb}
+      dns: [8.8.8.8, 8.8.4.4]
+      mtu: 1400
+      ctf: {enabled: no}
+      info:
+        - s_nssai:
+            - {sst: 1, sd: "000001", dnn: [embb]}
+
+upf:
+  enabled: true
+  image: {tag: 2.7.2}
+  metrics:
+    enabled: true
+    serviceMonitor: {enabled: false}   # replaced by deploy/core/servicemonitor.yaml
+  config:
+    subnetList:
+      - {subnet: 10.45.0.0/16, gateway: 10.45.0.1, dnn: embb, dev: ogstun, mask: 16, createDev: true, enableNAT: true}
+  podLabels:
+    5gs-monitor/slice: embb
+  # Controller actuator: tc shaper on the eMBB UPF's ogstun (downlink toward the UEs).
+  sidecars:
+    - name: shaper
+      image: 5gs-monitor:local
+      imagePullPolicy: Never
+      args: ["shaper"]
+      env:
+        - {name: SHAPER_DEV, value: ogstun}
+        - {name: SHAPER_INITIAL_MBIT, value: "0"}
+      securityContext:
+        capabilities: {add: [NET_ADMIN]}
+      ports:
+        - {containerPort: 8081, name: shaper-api}
+        - {containerPort: 9101, name: shaper-metrics}

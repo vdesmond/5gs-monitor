@@ -1,0 +1,19 @@
+# Writes the two slice subscribers into MongoDB (src/fivegs_monitor/provision.py).
+# Re-run after `make core` if the subscriber DB was reset: kubectl delete job -n 5gs provision && kubectl apply -f ...
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: provision
+  namespace: 5gs
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: provision
+          image: 5gs-monitor:local
+          imagePullPolicy: Never
+          args: ["provision"]
+          env:
+            - {name: DB_URI, value: mongodb://open5gs-mongodb/open5gs}

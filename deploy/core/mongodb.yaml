@@ -1,0 +1,38 @@
+# Plain MongoDB for the Open5GS subscriber DB (UDR/PCF). The Bitnami chart the Gradiant umbrella
+# depends on no longer ships arm64 images, so we run upstream mongo:7 ourselves. The Service is
+# named <release>-mongodb so every Gradiant sub-chart finds it with its default dbURI.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open5gs-mongodb
+  namespace: 5gs
+  labels: {app: open5gs-mongodb}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: open5gs-mongodb}
+  template:
+    metadata:
+      labels: {app: open5gs-mongodb}
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:7
+          args: ["--bind_ip_all", "--quiet"]
+          ports: [{containerPort: 27017, name: mongo}]
+          readinessProbe:
+            exec: {command: ["mongosh", "--quiet", "--eval", "db.runCommand({ping: 1}).ok"]}
+            periodSeconds: 5
+          volumeMounts: [{name: data, mountPath: /data/db}]
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: open5gs-mongodb
+  namespace: 5gs
+spec:
+  selector: {app: open5gs-mongodb}
+  ports: [{port: 27017, targetPort: mongo, name: mongo}]

@@ -1,0 +1,41 @@
+# kube-prometheus-stack values for a single-node OrbStack cluster.
+# Only what the 5G KPI loop needs: Prometheus (all ServiceMonitors/PodMonitors), Grafana with
+# sidecar-provisioned dashboards, kube-state-metrics for pod/deployment state.
+fullnameOverride: kps
+
+alertmanager:
+  enabled: false
+nodeExporter:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    scrapeInterval: 5s
+    evaluationInterval: 5s
+    retention: 2d
+    # pick up every ServiceMonitor / PodMonitor in the cluster, not only the chart's own
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+
+grafana:
+  adminPassword: admin
+  defaultDashboardsEnabled: false
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: ALL
+  grafana.ini:
+    auth.anonymous:
+      enabled: true
+      org_role: Viewer

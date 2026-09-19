@@ -1,0 +1,10 @@
+# Second UPF for the URLLC slice (chart third_party/5g-charts/charts/open5gs-upf, release upf-urllc).
+image: {tag: 2.7.2}
+metrics:
+  enabled: true
+  serviceMonitor: {enabled: true}
+config:
+  subnetList:
+    - {subnet: 10.46.0.0/16, gateway: 10.46.0.1, dnn: urllc, dev: ogstun, mask: 16, createDev: true, enableNAT: true}
+podLabels:
+  5gs-monitor/slice: urllc

@@ -1,0 +1,101 @@
+# UERANSIM gNB serving both slices. The Gradiant ueransim-gnb chart only takes a single S-NSSAI, so
+# the gNB is a plain Deployment with its own config. The image's entrypoint resolves AMF_HOSTNAME and
+# fills the ${...} placeholders with envsubst.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gnb-config
+  namespace: 5gs
+data:
+  gnb.yaml: |
+    mcc: '999'
+    mnc: '70'
+    nci: '0x0000000100'
+    idLength: 32
+    tac: 1
+    linkIp: ${RADIO_BIND_IP}
+    ngapIp: ${N2_BIND_IP}
+    gtpIp: ${N3_BIND_IP}
+    gtpAdvertiseIp: ${N3_ADVERTISE_IP}
+    amfConfigs:
+      - address: ${AMF_IP}
+        port: 38412
+    slices:
+      - sst: 1
+        sd: 0x000001
+      - sst: 2
+        sd: 0x000002
+    ignoreStreamIds: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gnb
+  namespace: 5gs
+  labels: {app: gnb}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: gnb}
+  template:
+    metadata:
+      labels: {app: gnb}
+    spec:
+      containers:
+        - name: gnb
+          image: gradiant/ueransim:3.2.6
+          args: ["gnb"]
+          env:
+            - {name: AMF_HOSTNAME, value: open5gs-amf-ngap}
+            - {name: N2_IFACE, value: eth0}
+            - {name: N3_IFACE, value: eth0}
+            - {name: RADIO_IFACE, value: eth0}
+          ports:
+            - {containerPort: 4997, protocol: UDP, name: radio}
+            - {containerPort: 2152, protocol: UDP, name: gtpu}
+          volumeMounts:
+            - {name: config, mountPath: /etc/ueransim/gnb.yaml, subPath: gnb.yaml}
+          resources:
+            requests: {cpu: 250m, memory: 128Mi}
+        # Models the shared radio cell: a fixed-capacity FIFO on the gNB's downlink radio-link
+        # traffic (UDP sport 4997 = UERANSIM radio link sim). Both slices contend for it, so an
+        # eMBB flood fills the queue and inflates URLLC latency - the thing the controller must catch.
+        - name: cell
+          image: 5gs-monitor:local
+          imagePullPolicy: Never
+          args: ["shaper"]
+          env:
+            - {name: SHAPER_DEV, value: eth0}
+            - {name: SHAPER_MATCH_SPORT, value: "4997"}
+            - {name: SHAPER_INITIAL_MBIT, value: "50"}
+            - {name: SHAPER_QUEUE_PKTS, value: "300"}
+          securityContext:
+            capabilities: {add: [NET_ADMIN]}
+          ports:
+            - {containerPort: 8081, name: api}
+            - {containerPort: 9101, name: metrics}
+      volumes:
+        - name: config
+          configMap: {name: gnb-config}
+---
+# Headless: UEs resolve the gNB pod IP directly (the radio-link simulation is plain UDP to it).
+apiVersion: v1
+kind: Service
+metadata:
+  name: gnb
+  namespace: 5gs
+spec:
+  clusterIP: None
+  selector: {app: gnb}
+  ports:
+    - {port: 4997, protocol: UDP, name: radio}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gnb-cell-shaper
+  namespace: 5gs
+spec:
+  selector: {app: gnb}
+  ports:
+    - {port: 8081, name: api}
