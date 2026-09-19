@@ -1,0 +1,45 @@
+# Horizon dark theme (same palette as vdesmond/wireless-mab), default fonts.
+figure.facecolor: "#1C1E26"
+figure.dpi: 100
+figure.titlesize: 12
+figure.titleweight: normal
+
+axes.facecolor: "#1C1E26"
+axes.edgecolor: "#ffffff"
+axes.labelcolor: "#ffffff"
+axes.titlecolor: "#e95378"
+axes.titlesize: 11
+axes.labelsize: 10
+axes.linewidth: 0.8
+axes.grid: True
+axes.prop_cycle: cycler('color', ["#e95378", "#25B0BC", "#FAB795", "#B877DB", "#27D797", "#FBC3A7", "#21BFC2", "#E9436F", "#09F7A0"])
+
+grid.color: "#ffffff"
+grid.linestyle: --
+grid.linewidth: 0.8
+grid.alpha: 0.25
+
+lines.linewidth: 1.8
+lines.markersize: 5
+lines.solid_capstyle: round
+
+xtick.color: "#ffffff"
+ytick.color: "#ffffff"
+xtick.labelsize: 9
+ytick.labelsize: 9
+
+font.size: 10
+mathtext.fontset: cm
+
+legend.facecolor: "#1C1E26"
+legend.edgecolor: "#ffffff3d"
+legend.labelcolor: "#ffffff"
+legend.fontsize: 8
+legend.framealpha: 0.8
+legend.title_fontsize: 9
+
+text.color: "#ffffff"
+
+savefig.facecolor: "#1C1E26"
+savefig.edgecolor: none
+savefig.dpi: 150

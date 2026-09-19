@@ -1,18 +1,3 @@
-"""A/B experiment: does the controller keep the URLLC slice inside its SLA under eMBB load?
-
-Phases (all timings in seconds, see PHASES):
-  baseline     no load, controller off
-  uncontrolled eMBB TCP download, controller off   -> URLLC latency inflates in the shared cell
-  controlled   same load, controller on            -> controller caps eMBB at its UPF, URLLC recovers
-  cooldown     no load, controller on              -> cap released once it is slack
-
-Everything is driven through kubectl (exec into the eMBB UE's loadgen container, the controller's
-API) and read back from Prometheus through a port-forward. Writes results/<stamp>/{kpis.csv,
-phases.json} and, with the `analysis` extra installed, plot.py turns them into results/<stamp>/sla_loop.png.
-
-Run from the repo root:  uv run experiments/run.py [--short]
-"""
-
 import argparse
 import csv
 import json

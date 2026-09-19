@@ -1,6 +1,4 @@
 # kube-prometheus-stack values for a single-node OrbStack cluster.
-# Only what the 5G KPI loop needs: Prometheus (all ServiceMonitors/PodMonitors), Grafana with
-# sidecar-provisioned dashboards, kube-state-metrics for pod/deployment state.
 fullnameOverride: kps
 
 alertmanager:

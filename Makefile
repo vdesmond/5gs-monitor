@@ -1,8 +1,3 @@
-# Bring-up order matters: monitoring first (the Open5GS charts render ServiceMonitor CRDs).
-#   make up        everything, in order
-#   make down      remove the 5gs namespace and its Helm releases (monitoring stays)
-#   make status    pods + slice registration state
-#   make experiment  A/B run (results/<stamp>/), then `make plot`
 CHARTS   := third_party/5g-charts/charts
 NS       := 5gs
 IMAGE    := 5gs-monitor:local
